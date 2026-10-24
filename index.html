@@ -1,0 +1,534 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TEXTBOY K2.0 – Story Editor</title>
+<style>
+:root{font-family:Consolas,'Courier New',monospace;background:#050b08;color:#a9ffbc;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0}header{padding:20px 24px 13px;border-bottom:1px solid #287647;display:flex;align-items:end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-size:clamp(1rem,2vw,1.4rem);white-space:nowrap;letter-spacing:.02em;margin:0;color:#5cff90}header p{margin:5px 0 0;color:#82ba90;font-size:.85rem}
+main{padding:18px;max-width:1900px;margin:auto}.workspace{display:grid;grid-template-columns:minmax(310px,32%) minmax(0,1fr);gap:18px;align-items:start}
+.editor{min-width:0}.panel{border:1px solid #24633b;border-radius:7px;background:#0b1610;padding:15px;margin-bottom:15px}
+h2{white-space:nowrap;margin:0 0 13px;color:#65f593;font-size:1.04rem;font-weight:700}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;min-width:0}
+label{font-size:.84rem;color:#a5eab4;font-weight:600}
+input,textarea{font:inherit;color:#d6ffe0;background:#07100a;border:1px solid #327448;border-radius:4px;padding:10px;width:100%;min-width:0}
+input:focus,textarea:focus{outline:2px solid #61f48b;outline-offset:1px}
+textarea{min-height:170px;resize:vertical;line-height:1.5}
+button{font:inherit;font-weight:600;color:#89ffab;background:#0b1d12;border:1px solid #47a466;border-radius:5px;padding:10px 13px;cursor:pointer}
+button:hover{background:#153720}button.primary{background:#124d2b;color:#e4ffea;border-color:#5eff8c}
+button:disabled,input:disabled{opacity:.35;cursor:not-allowed}
+.controls{display:flex;flex-wrap:wrap;gap:8px}.controls button{flex:1}
+.row{display:flex;align-items:center;gap:12px}.row .field{flex:1}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}.two .field{margin-bottom:9px}
+.check{display:flex;align-items:center;gap:7px;white-space:nowrap}
+.check input{width:18px;height:18px;accent-color:#51e67f}
+.note,.status{color:#8bb99a;font-size:.8rem;line-height:1.45}
+.status{min-height:1.2em;margin-top:10px}.status.unsaved{color:#ff6572}.status.saved{color:#75f9a0}
+.viewer{overflow:auto;border:1px solid #275b39;border-radius:5px;background:#040b06;max-height:570px;scrollbar-color:#307449 #08130b}
+.line{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #13251a;border-radius:0;background:transparent;color:#baf9c9;padding:7px 10px;font:13px/1.55 Consolas,'Courier New',monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+.line.note-line{background:#10261a;border-left:3px solid #32794a}.line.note-line:hover{background:#183a27}.line:hover{background:#112a1a}.line.selected{background:#16482b}.line.draft{background:#24331b}
+.line.bad{background:#3a171b!important;border-left:3px solid #f16a73;color:#ffd5d8}.line.bad:hover{background:#512026!important}
+.line .tag{color:#ffe68b;font:11px Consolas,'Courier New',monospace;margin-left:8px}
+.errors{display:flex;flex-wrap:wrap;gap:7px;min-height:24px}.errors button{color:#ff6873;border-color:#b44751;font-size:.8rem;padding:5px 9px}.ok{color:#7cf49a}
+.desktop{position:sticky;top:14px;min-width:0}.desktop .viewer{height:calc(100vh - 95px);max-height:none}
+.bottom{margin-top:4px}.modebar{display:flex;gap:4px;align-items:end}.modebar button{padding:7px 10px;font-size:.77rem;white-space:nowrap;opacity:.5;border-radius:5px 5px 0 0}.modebar button.active{opacity:1;background:#15552f;color:#eaffef;border-color:#6aff99}.edit-tabs{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:-15px -15px 16px}.edit-tabs button{border-radius:5px 5px 0 0;opacity:.5;font-size:.88rem;white-space:normal;overflow-wrap:normal;padding:10px 5px;letter-spacing:0;min-width:0;line-height:1.3}.edit-tabs button.active{opacity:1;background:#15552f;color:#edfff1;border-color:#65f58f}.full{width:100%;margin-top:9px}.bottom .viewer{max-height:560px}
+.count{font-size:.8rem;color:#81bb92}dialog{background:#0c1910;color:#c4ffd1;border:1px solid #56b676;border-radius:9px;padding:23px;max-width:min(430px,90vw)}
+dialog::backdrop{background:#000b}dialog .controls{justify-content:flex-end;margin-top:22px}
+body.view-mobile .workspace{display:block}body.view-mobile .desktop{display:none}body.view-web .bottom{display:none}body.view-mobile .editor{max-width:740px;margin:auto}body.view-mobile .bottom{max-width:740px;margin:0 auto} @media(max-width:800px){.edit-tabs button{font-size:.88rem}main{padding:12px}.workspace{display:block}.desktop{display:none}body.view-web .desktop{display:block;position:static;margin-top:14px}body.view-web .workspace{display:block}body.view-web .bottom{display:none}.two{gap:8px}.panel{padding:13px}}
+
+/* Webansicht bleibt auch auf schmalen Displays eine echte Zweispaltenansicht.
+   Auf dem Handy ist sie horizontal scrollbar statt in die Mobilansicht zu fallen. */
+@media(max-width:800px){
+ body.view-web main{overflow-x:auto;max-width:100vw}
+ body.view-web .workspace{display:grid;grid-template-columns:minmax(310px,32%) minmax(0,1fr);min-width:980px;align-items:start}
+ body.view-web .desktop{display:block;position:sticky;top:14px;margin-top:0}
+ body.view-web .desktop .viewer{height:calc(100vh - 95px);max-height:none}
+ body.view-web .bottom{display:none}
+}
+
+/* Integrierte, ständig eingeschaltete TEXTBOY-Konsole */
+.console{border:1px solid #338a50;border-radius:12px;background:#07130c;padding:13px;margin-bottom:15px}
+.console-title{color:#78ffa0;font-weight:bold;font-size:.9rem;margin-bottom:9px}
+.lcd{background:#10351e;border:3px solid #4cb86e;border-radius:5px;padding:9px 7px;color:#b7ffd0;box-shadow:inset 0 0 14px #06170b,0 0 0 2px #173d28;overflow:hidden}
+.lcd-line{display:grid;grid-template-columns:repeat(20,minmax(0,1fr));height:auto;white-space:nowrap;overflow:hidden}.lcd-cell{min-width:0;aspect-ratio:0.72/1;display:flex;align-items:center;justify-content:center;font:900 clamp(11px,1.15vw,19px)/1 Consolas,'Courier New',monospace;border:1px solid rgba(120,223,145,.22);background:rgba(63,143,78,.48);overflow:hidden}
+.console-buttons{display:flex;justify-content:space-between;gap:20px;margin-top:12px}
+.console-buttons button{width:52px;height:52px;min-width:52px;min-height:52px;padding:0;flex:0 0 52px;aspect-ratio:1/1;border-radius:50%;font-size:1rem;font-weight:bold;color:#fff}
+#consoleRed{background:#10341e;border:2px solid #286c40}
+#consoleGreen{background:#24ba53;border:2px solid #80ffa1}
+#consoleRed:disabled,#consoleGreen:disabled{opacity:.35}
+.console-caption{display:flex;justify-content:space-between;gap:8px;font-size:.75rem;margin-top:6px;min-height:1em}
+.console-caption span{max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.console-caption span:last-child{text-align:right}
+.console-info{font-size:.76rem;color:#80bb91;margin-top:8px;text-align:center}
+body.view-mobile .console{display:block}
+@media(max-width:800px){.lcd-cell{font-size:clamp(11px,2.9vw,19px)}}
+.edit-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-5px 0 15px;flex-wrap:wrap}
+.edit-heading h2{margin:0;font-size:.95rem;flex:1 1 150px}
+.edit-heading button{font-size:.85rem;flex:0 1 auto;max-width:100%;white-space:normal;text-align:center;background:#10311c;border:1px solid #58a873;opacity:1}
+@media(max-width:520px){.edit-heading{align-items:stretch}.edit-heading h2{flex-basis:100%}.edit-heading button{width:100%}}
+
+/* Notiz-Kontrollfeld passend zur neongruenen Bedienoberflaeche */
+.check input[type="checkbox"]{appearance:none;-webkit-appearance:none;width:22px;height:22px;flex:0 0 22px;border:2px solid #58c67d;border-radius:4px;background:#123b23;cursor:pointer;position:relative;opacity:1}
+.check input[type="checkbox"]:checked{background:#26bc59;border-color:#8bffac}
+.check input[type="checkbox"]:checked::after{content:"✓";position:absolute;inset:-3px 0 0;text-align:center;font-size:19px;line-height:21px;color:#041309;font-weight:bold}
+.edit-heading{justify-content:flex-end;margin:0 0 14px}
+.edit-heading button{min-width:90px;background:#124b2b;border-color:#64ed90;color:#d5ffe0;font-weight:bold}
+@media(max-width:520px){.edit-heading{align-items:flex-end}.edit-heading button{width:auto}}
+</style><link rel="manifest" href="./manifest.webmanifest"><meta name="theme-color" content="#050b08"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"></head><body>
+<header><h1>TEXTBOY K2.0 · Story Editor</h1><div class="modebar"><button id="webMode" class="active" type="button">Web-Version</button><button id="mobileMode" type="button">Mobile Version</button></div></header>
+<main><div class="workspace"><div class="editor"><section class="console" aria-label="Virtuelle TEXTBOY-Konsole">
+
+<div class="lcd" aria-live="polite"><div class="lcd-line" id="lcd0"></div><div class="lcd-line" id="lcd1"></div><div class="lcd-line" id="lcd2"></div><div class="lcd-line" id="lcd3"></div></div>
+<div class="console-buttons"><button id="consoleRed" type="button" aria-label="Rote Taste"></button><button id="consoleGreen" type="button" aria-label="Grüne Taste"></button></div>
+
+<div class="console-info" id="consoleInfo"></div>
+</section>
+
+<section class="panel">
+ <div class="field"><input id="filename" value="Rotkäppchen.txt"></div>
+ <div class="controls"><button id="import">.txt importieren</button><button class="primary" id="export">.txt exportieren</button></div>
+ <button class="full" id="newFile" type="button">.txt erstellen</button>
+ <input type="file" id="fileInput" accept=".txt,text/plain" hidden>
+</section>
+<section class="panel">
+ <div class="edit-heading"><button id="newTab" type="button">Neu</button></div>
+ <div class="row">
+  <div class="field"><label for="section">Abschnittsnummer</label><input id="section" maxlength="3" inputmode="numeric" placeholder="z. B. 002"></div>
+  <label class="check"><input id="isNote" type="checkbox">Notiz</label>
+ </div>
+ <div class="field"><label for="story">Text</label><textarea id="story" placeholder="Erzähltext oder Notiztext"></textarea></div>
+ <div class="two" id="buttonFields">
+  <div><div class="field"><input id="left" maxlength="9" placeholder="Rote Taste" aria-label="Rote Taste"></div><div class="field"><input id="leftTarget" maxlength="3" inputmode="numeric" placeholder="000" aria-label="Zielnummer rote Taste"></div></div>
+  <div><div class="field"><input id="right" maxlength="9" placeholder="Grüne Taste" aria-label="Grüne Taste"></div><div class="field"><input id="rightTarget" maxlength="3" inputmode="numeric" placeholder="000" aria-label="Zielnummer grüne Taste"></div></div>
+ </div>
+ <div class="controls"><button id="delete" type="button">Löschen</button><button class="primary" id="confirm">Bestätigen</button></div>
+ <div id="status" class="status" aria-live="polite"></div>
+
+</section>
+<section class="panel"><h2>Fehler</h2><div id="errors" class="errors"></div></section>
+</div>
+<aside class="desktop panel"><div class="row" style="justify-content:space-between"><h2>Code</h2><span class="count" id="countDesktop"></span></div><div class="viewer" id="viewerDesktop"></div></aside>
+</div>
+<section class="panel bottom"><div class="row" style="justify-content:space-between"><h2>Code</h2><span class="count" id="countMobile"></span></div><div class="viewer" id="viewerMobile"></div></section>
+</main>
+<dialog id="deleteDialog"><strong>Sicher löschen?</strong><p>Der ausgewählte Abschnitt oder die Notiz wird entfernt.</p><div class="controls"><button id="deleteCancel">Abbrechen</button><button id="deleteYes">Löschen</button></div></dialog>
+<dialog id="newFileDialog"><strong>Neue TXT-Datei erstellen?</strong><p>Die aktuelle Datei kann vorher exportiert werden.</p><div class="controls"><button id="newFileCancel">Abbrechen</button><button id="newFileDiscard">Verwerfen</button><button id="newFileSave" class="primary">Speichern</button></div></dialog>
+<dialog id="overwrite"><strong>Überschreiben?</strong><p id="overwriteMsg">Den vorhandenen Inhalt ersetzen?</p><div class="controls"><button id="overwriteNo">Abbrechen</button><button class="primary" id="overwriteYes">Ersetzen</button></div></dialog>
+<dialog id="beforeNew"><strong>Abschnitt speichern?</strong><p>Du hast Änderungen vorgenommen. Möchtest du sie speichern oder verwerfen?</p><div class="controls"><button id="newCancel">Verwerfen</button><button class="primary" id="newSave">Speichern</button></div></dialog>
+<dialog id="beforeImport"><strong>Aktuelle Datei speichern?</strong><p>Soll die aktuelle TXT-Datei vor dem Öffnen exportiert werden?</p><div class="controls"><button id="importCancel">Abbrechen</button><button id="importNo">Verwerfen</button><button class="primary" id="importYes">Speichern</button></div></dialog>
+<script>
+"use strict";
+const initialText="[ROTKÄPPCHEN]\n001 Es war einmal ein kleines Mädchen, das alle Rotkäppchen nannten. Eines Tages bat die Mutter es, der kranken Großmutter Kuchen und Wein zu bringen. (Weiter (002))\n002 Die Großmutter wohnte draußen im Wald. Die Mutter sagte: Bleib auf dem Weg und grüße die Großmutter schön. Rotkäppchen machte sich auf den Weg. (Weiter (003))\n003 Im Wald begegnete Rotkäppchen einem Wolf. Er fragte, wohin es gehe. Rotkäppchen erzählte ihm von der Großmutter und ihrem Haus unter den drei großen Eichen. (Weiter (004))\n004 Der Wolf schlug vor, einen Blumenstrauß zu pflücken. Rotkäppchen sah die schönen Blumen und ging ein Stück vom Weg ab. (Weiter (005))\n005 Während Rotkäppchen Blumen sammelte, lief der Wolf zum Haus der Großmutter. Er klopfte an und gab sich als Rotkäppchen aus. (Weiter (006))\n006 Die Großmutter rief, er solle nur die Klinke drücken. Der Wolf trat ein und verschlang die Großmutter. Dann zog er ihre Kleider an und legte sich ins Bett. (Weiter (007))\n007 Als Rotkäppchen eintraf, wunderte es sich über das Aussehen der Großmutter. Es trat näher an das Bett. (Weiter (008))\n008 Großmutter, warum hast du so große Ohren? Damit ich dich besser hören kann. Und warum hast du so große Augen? Damit ich dich besser sehen kann. (Weiter (009))\n009 Großmutter, warum hast du so große Hände? Damit ich dich besser packen kann. Aber Großmutter, warum hast du so ein großes Maul? (Weiter (010))\n010 Damit ich dich besser fressen kann! Der Wolf sprang aus dem Bett und verschlang Rotkäppchen. Danach schlief er ein und schnarchte laut. (Weiter (011))\n011 Ein Jäger kam am Haus vorbei und hörte das Schnarchen. Er trat ein und entdeckte den Wolf im Bett der Großmutter. (Weiter (012))\n012 Der Jäger vermutete, dass der Wolf die Großmutter gefressen hatte. Vorsichtig schnitt er ihm den Bauch auf. Zuerst sprang Rotkäppchen heraus, dann die Großmutter. Beide lebten noch. (Weiter (013))\n013 Rotkäppchen holte große Steine. Gemeinsam füllten sie den Bauch des Wolfs damit. Als der Wolf erwachte und aufspringen wollte, fiel er tot um. (Weiter (014))\n014 Die Großmutter aß den Kuchen und trank den Wein. Rotkäppchen nahm sich vor, künftig nicht mehr vom Weg abzugehen, wenn die Mutter es verboten hatte. (Ende (999))\n999 ENDE";
+const $=id=>document.getElementById(id);
+const cleanLines=text=>text.replace(/\r\n?/g,"\n").split("\n").filter(line=>line.trim().length>0);
+let lines=cleanLines(initialText),selected=null,pending=null,importFile=null,baseline=null;
+const ids=["section","story","left","leftTarget","right","rightTarget"];
+const sectionRegex=/^(\d{3})\s(.*)$/;
+function sections(data=lines){return data.map((raw,i)=>{const m=raw.match(sectionRegex);return m?{id:m[1],body:m[2],index:i}:null}).filter(Boolean)}
+function parse(body){
+ const m=body.match(/(?:^|\s)\(([^()]*)\((\d{3})\)(?:\s*\/\s*([^()]*)\((\d{3})\))?\)\s*$/);
+ if(!m)return {story:body,left:"",leftTarget:"",right:"",rightTarget:"",command:false};
+ const base={story:body.slice(0,m.index).trimEnd(),left:"",leftTarget:"",right:"",rightTarget:"",command:true};
+ if(m[4]){base.left=m[1].trim();base.leftTarget=m[2];base.right=m[3].trim();base.rightTarget=m[4]}
+ else{base.right=m[1].trim();base.rightTarget=m[2]}
+ return base;
+}
+function noteLine(raw){return /^\s*\[[^\]\n]*\]\s*$/.test(raw)}
+function findNoteBelow(data,id){
+ const s=sections(data).find(x=>x.id===id);if(!s)return -1;
+ for(let i=s.index+1;i<data.length;i++){if(sectionRegex.test(data[i]))break;if(noteLine(data[i]))return i}
+ return -1;
+}
+function snapshot(){return JSON.stringify({values:ids.map(id=>$(id).value),note:$("isNote").checked})}
+function remember(){baseline=snapshot()}
+let nextAction=null;
+function navigate(action){
+ if(baseline!==null&&snapshot()!==baseline){
+  nextAction=action;
+  $("beforeNew").showModal();
+ }else action();
+}
+function saveCurrentDirect(){
+ const error=issue();
+ if(error){setStatus(error);return false}
+ const id=$("section").value.trim(),line=build();
+ if($("isNote").checked){
+  const old=selected?.type==="note"?selected.index:findNoteBelow(lines,id);
+  const newIndex=old>=0&&sections(lines).filter(x=>x.index<old).at(-1)?.id===id?old:-1;
+  lines=insertNote(lines,line,id,old);
+  selected={type:"note",index:old>=0?old:notePosition(lines,id)};
+ }else{
+  const old=sections().find(s=>s.id===id);
+  lines=insertSection(lines,line,id,old?old.index:-1);
+  selected={type:"section",id};
+ }
+ remember();setStatus();return true;
+}
+function loadSection(id,fromConsole=false){
+ const s=sections().find(x=>x.id===id);if(!s)return;
+ const p=parse(s.body);$("isNote").checked=false;
+ $("section").value=id;for(const key of ["story","left","leftTarget","right","rightTarget"])$(key).value=p[key];
+ selected={type:"section",id};toggleNote();remember();setStatus("Abschnitt "+id+" geladen.");render();showConsole(id);
+ if(!fromConsole&&innerWidth<=800)window.scrollTo({top:0,behavior:"smooth"});
+}
+function loadNote(index){
+ const raw=lines[index];if(!noteLine(raw))return;
+ const prior=sections().filter(x=>x.index<index).at(-1);
+ $("isNote").checked=true;$("section").value=prior?prior.id:"";
+ $("story").value=raw.trim().slice(1,-1);for(const k of ["left","leftTarget","right","rightTarget"])$(k).value="";
+ selected={type:"note",index};toggleNote();remember();setStatus("Notiz geladen.");render();if(prior)showConsole(prior.id);
+ if(innerWidth<=800)window.scrollTo({top:0,behavior:"smooth"});
+}
+function toggleNote(){const disabled=$("isNote").checked;for(const k of ["left","leftTarget","right","rightTarget"])$(k).disabled=disabled}
+function setStatus(msg){
+ const el=$("status");
+ const unsaved=baseline!==null&&snapshot()!==baseline;
+ el.textContent=unsaved?"Nicht gespeichert":"Gespeichert";
+ el.classList.toggle("unsaved",unsaved);
+ el.classList.toggle("saved",!unsaved);
+}
+function build(){
+ const id=$("section").value.trim(),body=$("story").value.trim();
+ if($("isNote").checked)return "["+body.replace(/[\[\]]/g,"")+"]";
+ const left=$("left").value.trim(),lt=$("leftTarget").value.trim(),right=$("right").value.trim(),rt=$("rightTarget").value.trim();
+ let cmd="";
+ if(left||lt)cmd=left+" ("+lt+")";
+ if(right||rt)cmd+=(cmd?" / ":"")+right+" ("+rt+")";
+ return id+" "+body+(cmd?(body?" ":"")+"("+cmd+")":"");
+}
+function issue(){
+ const id=$("section").value.trim(),lt=$("leftTarget").value.trim(),rt=$("rightTarget").value.trim();
+ if(!/^\d{3}$/.test(id))return "Bitte eine dreistellige Abschnittsnummer eingeben.";
+ if($("isNote").checked){if(selected?.type!=="note"&&!sections().some(x=>x.id===id))return "Der Abschnitt für die Notiz existiert nicht.";if(!$("story").value.trim())return "Bitte Notiztext eingeben.";return ""}
+ if(!$("story").value.trim()&&!$("right").value.trim()&&!$("left").value.trim())return "Bitte Text oder Befehl eingeben.";
+ if((lt&&!/^\d{3}$/.test(lt))||(rt&&!/^\d{3}$/.test(rt)))return "Sprungziele müssen dreistellig sein.";
+ return "";
+}
+function insertSection(data,line,id,oldIndex=-1){
+ const out=data.slice();
+ // Wichtig: Einen vorhandenen Abschnitt NIEMALS neu einsortieren.
+ // Sonst bleiben seine Notizen an der alten Position und rutschen
+ // in der Vorschau plötzlich VOR ihren Abschnitt.
+ if(oldIndex>=0 && oldIndex<out.length){
+  const previous=out[oldIndex].match(sectionRegex);
+  if(previous && previous[1]===id){
+   out[oldIndex]=line;
+   return out;
+  }
+  out.splice(oldIndex,1);
+ }
+ const list=sections(out),next=list.find(s=>Number(s.id)>Number(id));
+ if(next)out.splice(next.index,0,line);
+ else if(list.length){
+  const last=list.at(-1);let at=last.index+1;
+  while(at<out.length&&(noteLine(out[at])||out[at].trim()===""))at++;
+  out.splice(at,0,line);
+ }else out.push(line);
+ return out;
+}
+function insertNote(data,line,id,oldIndex=-1){
+ const out=data.slice();
+ // Existing note: edit the exact row in place, never relocate it.
+ // Notes used as headings may be intentionally placed BEFORE a section.
+ if(oldIndex>=0 && oldIndex<out.length && noteLine(out[oldIndex])){
+  out[oldIndex]=line;
+  return out;
+ }
+ // New note: insert directly after the specified section.
+ const parent=sections(out).find(x=>x.id===id);
+ if(!parent)return out;
+ let at=parent.index+1;
+ while(at<out.length&&noteLine(out[at]))at++;
+ out.splice(at,0,line);
+ return out;
+}
+function notePosition(data,id){
+ const parent=sections(data).find(x=>x.id===id);
+ if(!parent)return -1;
+ let i=parent.index+1;
+ while(i<data.length&&noteLine(data[i]))i++;
+ return i-1>parent.index?i-1:-1;
+}
+function selectedNotePosition(data,id,oldIndex){
+ // If the edited note belongs to the same section, it stays at its exact index.
+ const originalParent=oldIndex>=0?sections(lines).filter(x=>x.index<oldIndex).at(-1):null;
+ if(originalParent?.id===id&&noteLine(lines[oldIndex]))return oldIndex;
+ return notePosition(data,id);
+}
+function draft(){
+ const id=$("section").value.trim();
+ if(!/^\d{3}$/.test(id))return {data:lines,index:-1};
+ const line=build();
+ if($("isNote").checked){
+  if(selected?.type!=="note"&&!sections().some(x=>x.id===id))return {data:lines,index:-1};
+  const old=selected?.type==="note"?selected.index:-1;
+  const data=insertNote(lines,line,id,old);return {data,index:old>=0?old:notePosition(data,id)};
+ }
+ const existing=sections().find(s=>s.id===id);
+ const data=insertSection(lines,line,id,existing?existing.index:-1);
+ return {data,index:data.indexOf(line)};
+}
+function validate(data){
+ const list=sections(data),valid=new Set(list.map(x=>x.id)),seen=new Set(),problems=[];
+ for(const s of list){
+  const p=parse(s.body),err=[];
+  if(seen.has(s.id))err.push("Doppelte Abschnittsnummer "+s.id);
+  seen.add(s.id);
+  // Ein Abschnitt ohne Tastenbefehl darf ein gewolltes Ende sein.
+  // Sobald aber ein Befehlsversuch vorhanden ist, prüfen wir auch leere Felder.
+  const commandPart=s.body.match(/\(([^()]*)\(([^()]*)\)(?:\s*\/\s*([^()]*)\(([^()]*)\))?\)\s*$/);
+  if(commandPart){
+   const choices=commandPart[3]!==undefined
+     ? [[commandPart[1],commandPart[2],"Rot"],[commandPart[3],commandPart[4],"Grün"]]
+     : [[commandPart[1],commandPart[2],"Grün"]];
+   for(const [label,target,color] of choices){
+    if(!label.trim())err.push(color+": Beschriftung fehlt");
+    if(!target.trim())err.push(color+": Zielnummer fehlt");
+    else if(!/^\d{3}$/.test(target.trim()))err.push(color+": Zielnummer ungültig");
+    else if(!valid.has(target.trim()))err.push(color+": Ziel "+target.trim()+" existiert nicht");
+   }
+  }else if(s.body.includes("(")||s.body.includes(")")){
+   // Versehentliche Befehle und fehlerhafte Klammern sichtbar machen.
+   err.push("Befehl oder Klammern fehlerhaft");
+  }
+  if(err.length)problems.push({index:s.index,msg:err.join(" · ")});
+ }
+ return problems;
+}
+function paint(container,data,draftIndex,errors){
+ const oldScroll=container.scrollTop,fragment=document.createDocumentFragment(),bad=new Map(errors.map(e=>[e.index,e.msg]));
+ data.forEach((raw,index)=>{
+  const row=document.createElement("button");row.type="button";row.className="line";
+  if(index===draftIndex)row.classList.add("draft");
+  if(noteLine(raw))row.classList.add("note-line");
+  if(bad.has(index))row.classList.add("bad");
+  const m=raw.match(sectionRegex);
+  if(m&&selected?.type==="section"&&m[1]===selected.id)row.classList.add("selected");
+  if(selected?.type==="note"&&selected.index===index)row.classList.add("selected");
+  row.append(document.createTextNode(raw||" "));
+  if(index===draftIndex){const tag=document.createElement("span");tag.className="tag";tag.textContent="Vorschau";row.append(tag)}
+  row.onclick=()=>{
+   if(index===draftIndex&&!(m?sections().some(s=>s.id===m[1]):noteLine(lines[index]||"")))return;
+   if(m)navigate(()=>loadSection(m[1]));else if(noteLine(raw)){
+    const actual=(selected?.type==="note"&&index===draftIndex)
+     ? selected.index
+     : (index<lines.length&&lines[index]===raw?index:-1);
+    if(actual>=0)navigate(()=>loadNote(actual));
+   }
+  };
+  fragment.append(row);
+ });
+ container.replaceChildren(fragment);container.scrollTop=oldScroll;
+}
+function render(){
+ setStatus();
+ const hasDraft=$("section").value.trim().length>0;
+ const v=hasDraft?draft():{data:lines,index:-1},errors=validate(v.data);
+ paint($("viewerDesktop"),v.data,v.index,errors);
+ paint($("viewerMobile"),v.data,v.index,errors);
+ const count=v.data.length+" Zeilen · "+sections(v.data).length+" Abschnitte";
+ $("countDesktop").textContent=count;$("countMobile").textContent=count;
+ const box=$("errors");box.replaceChildren();
+ if(!errors.length){const ok=document.createElement("span");ok.className="ok";ok.textContent="Keine erkannten Fehler.";box.append(ok)}
+ for(const e of errors){const b=document.createElement("button");b.textContent="Zeile "+(e.index+1)+": "+e.msg;b.title=e.msg;b.onclick=()=>{const viewer=innerWidth>800?$("viewerDesktop"):$("viewerMobile");viewer.children[e.index]?.scrollIntoView({block:"nearest",behavior:"smooth"})};box.append(b)}
+}
+function save(){
+ const error=issue();if(error){setStatus(error);return}
+ const id=$("section").value.trim(),line=build();
+ if($("isNote").checked){
+  if(selected?.type==="note"){
+   pending={type:"note",id,line,index:selected.index};
+   $("overwriteMsg").textContent="Diese Notiz vollständig überschreiben?";$("overwrite").showModal();
+  }else{
+   const old=findNoteBelow(lines,id);
+   if(old>=0){pending={type:"note",id,line,index:old};$("overwriteMsg").textContent="Die vorhandene Notiz unter Abschnitt "+id+" überschreiben?";$("overwrite").showModal()}
+   else{lines=insertNote(lines,line,id);selected={type:"note",index:notePosition(lines,id)};remember();setStatus("Notiz eingefügt.");render()}
+  }
+ }else{
+  const old=sections().find(s=>s.id===id);
+  if(old){pending={type:"section",id,line,index:old.index};$("overwriteMsg").textContent="Abschnitt "+id+" vollständig überschreiben?";$("overwrite").showModal()}
+  else{lines=insertSection(lines,line,id);selected={type:"section",id};remember();setStatus("Abschnitt "+id+" eingefügt.");render()}
+ }
+}
+$("confirm").onclick=save;
+$("overwriteYes").onclick=()=>{
+ if(pending){
+  if(pending.type==="note"){
+   const oldParent=sections(lines).filter(x=>x.index<pending.index).at(-1);
+   const same=oldParent?.id===pending.id&&noteLine(lines[pending.index]);
+   lines=insertNote(lines,pending.line,pending.id,pending.index);
+   selected={type:"note",index:pending.index};
+  }
+  else{lines=insertSection(lines,pending.line,pending.id,pending.index);selected={type:"section",id:pending.id}}
+  remember();setStatus("Inhalt überschrieben.");pending=null;render();
+ }
+ $("overwrite").close();
+};
+$("overwriteNo").onclick=()=>{pending=null;$("overwrite").close();setStatus("Nicht überschrieben.")};
+function clearEditor(){ids.forEach(id=>$(id).value="");$("isNote").checked=false;selected=null;toggleNote();remember();setStatus("Neuen Abschnitt eingeben.");render();$("section").focus()}
+$("newTab").onclick=()=>navigate(()=>{clearEditor();setEditMode("new")});
+$("delete").onclick=()=>{
+ if(!selected){setStatus("Bitte zuerst einen Abschnitt oder eine Notiz auswählen.");return}
+ $("deleteDialog").showModal();
+};
+$("deleteCancel").onclick=()=>$("deleteDialog").close();
+$("deleteYes").onclick=()=>{
+ if(selected?.type==="section"){
+  const s=sections().find(x=>x.id===selected.id);
+  if(s){let end=s.index+1;while(end<lines.length&&noteLine(lines[end]))end++;lines.splice(s.index,end-s.index)}
+ }else if(selected?.type==="note"&&selected.index>=0){lines.splice(selected.index,1)}
+ $("deleteDialog").close();clearEditor();setStatus("Gelöscht.");
+};
+function applyView(mode){
+ document.body.classList.toggle("view-web",mode==="web");
+ document.body.classList.toggle("view-mobile",mode==="mobile");
+ $("webMode").classList.toggle("active",mode==="web");
+ $("mobileMode").classList.toggle("active",mode==="mobile");
+}
+$("webMode").onclick=()=>applyView("web");
+$("mobileMode").onclick=()=>applyView("mobile");
+applyView(innerWidth<=800?"mobile":"web");
+function startNewFile(){
+ lines=[];$("filename").value="Neues Spiel.txt";clearEditor();
+ $("newFileDialog").close();setStatus("Neue leere TXT-Datei erstellt.");
+}
+$("newFile").onclick=()=>$("newFileDialog").showModal();
+$("newFileCancel").onclick=()=>$("newFileDialog").close();
+$("newFileDiscard").onclick=startNewFile;
+$("newFileSave").onclick=()=>{exportTxt();startNewFile()};
+
+$("newCancel").onclick=()=>{
+ $("beforeNew").close();
+ const action=nextAction;nextAction=null;
+ if(action)action();
+};
+$("newSave").onclick=()=>{
+ if(!saveCurrentDirect())return;
+ $("beforeNew").close();
+ const action=nextAction;nextAction=null;
+ if(action)action();
+ setStatus("Änderungen gespeichert.");
+};
+$("isNote").onchange=()=>{toggleNote();setStatus("Vorschau – noch nicht bestätigt");render()};
+ids.forEach(id=>$(id).addEventListener("input",()=>{setStatus("Vorschau – noch nicht bestätigt");render()}));
+function exportTxt(){
+ const n=$("filename").value.trim().replace(/[\\/:*?"<>|]/g,"_")||"TEXTBOY-Spiel.txt",name=n.toLowerCase().endsWith(".txt")?n:n+".txt";
+ const blob=new Blob([lines.join("\r\n")],{type:"text/plain;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");
+ a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+ setStatus("Download gestartet: "+name);
+}
+$("export").onclick=exportTxt;
+$("import").onclick=()=>$("fileInput").click();
+$("fileInput").onchange=e=>{importFile=e.target.files[0]||null;e.target.value="";if(importFile)$("beforeImport").showModal()};
+function cancelImport(){importFile=null;$("beforeImport").close()}
+$("importCancel").onclick=cancelImport;
+async function doImport(){
+ const file=importFile;if(!file)return;
+ const text=await file.text();lines=cleanLines(text.replace(/^\uFEFF/,""));
+ $("filename").value=file.name;ids.forEach(id=>$(id).value="");$("isNote").checked=false;selected=null;toggleNote();remember();
+ importFile=null;$("beforeImport").close();setStatus("Importiert: "+file.name);render();
+}
+$("importNo").onclick=doImport;
+$("importYes").onclick=()=>{exportTxt();doImport()};
+remember();
+// LCD 20 Spalten x 4 Zeilen. Die letzte Zeile ist für Tastenbeschriftungen reserviert.
+let consoleId=null,consolePage=0;
+function lcdPack(words,widths){
+ const rest=words.slice(),rows=[];
+ for(const width of widths){
+  let row="";
+  while(rest.length){
+   const word=rest[0];
+   // Niemals Wörter zerschneiden. Überlange Wörter bleiben ganz
+   // und werden vom 20-Zeichen-Display ggf. abgeschnitten.
+   if(!row&&word.length>width){row=rest.shift();break}
+   if((row?row.length+1:0)+word.length>width)break;
+   row+=(row?" ":"")+rest.shift();
+  }
+  rows.push(row);
+ }
+ return {rows,left:rest};
+}
+function lcdPages(text,hasCommands){
+ let remaining=text.trim().split(/\s+/).filter(Boolean),result=[],guard=0;
+ if(!remaining.length)return [{rows:["","","",""],choice:hasCommands,more:false}];
+ while(remaining.length&&guard++<1000){
+  // Entscheidungsseite: Text in den ersten drei Zeilen,
+  // Tastenbezeichnungen in der vierten Zeile.
+  if(hasCommands){
+   const last=lcdPack(remaining,[20,20,20]);
+   if(!last.left.length){result.push({rows:[...last.rows,""],choice:true,more:false});break}
+  }else{
+   const last=lcdPack(remaining,[20,20,20,20]);
+   if(!last.left.length){result.push({rows:last.rows,choice:false,more:false});break}
+  }
+  const part=lcdPack(remaining,[20,20,20,17]);
+  if(part.left.length){
+   result.push({rows:part.rows,choice:false,more:true});
+   remaining=part.left;
+  }else{
+   // Sonderfall: Vier Textzeilen passen, drei jedoch nicht.
+   // Die letzte Seite muss trotzdem Text UND Entscheidung enthalten.
+   // Deshalb die vierte Zeile auf die nächste Seite verschieben.
+   const three=lcdPack(remaining,[20,20,20]);
+   result.push({rows:[...three.rows,""],choice:false,more:true});
+   remaining=three.left;
+  }
+ }
+ return result;
+}
+function lcdLabel(label,max=9){return [...label].slice(0,max).join("")}
+function lcdDrawRow(index,text){
+ const row=$("lcd"+index),chars=Array.from(text).slice(0,20);
+ row.replaceChildren();
+ for(let n=0;n<20;n++){
+  const cell=document.createElement("span");cell.className="lcd-cell";
+  cell.textContent=chars[n]||" ";row.append(cell);
+ }
+}
+function showConsole(id,reset=true){
+ const sec=sections().find(x=>x.id===id);if(!sec)return;
+ if(consoleId!==id||reset)consolePage=0;
+ consoleId=id;
+ const p=parse(sec.body),hasCommands=Boolean(p.leftTarget||p.rightTarget);
+ const pages=lcdPages(p.story,hasCommands),total=pages.length;
+ consolePage=Math.min(consolePage,total-1);
+ const page=pages[consolePage],rows=page.rows.slice();
+ while(rows.length<4)rows.push("");
+ if(page.choice){
+  const red=lcdLabel(p.left),green=lcdLabel(p.right);
+  rows[3]=red.padEnd(20-green.length," ")+green;
+ }else if(page.more){
+  rows[3]=rows[3].slice(0,17).padEnd(17," ")+"...";
+ }
+ for(let i=0;i<4;i++)lcdDrawRow(i,rows[i]);
+ $("consoleRed").disabled=!page.choice||!p.leftTarget;
+ $("consoleGreen").disabled=!(page.more||(!page.choice&&consolePage<total-1)||page.choice&&p.rightTarget);
+ $("consoleInfo").textContent="Abschnitt "+id+" · Seite "+(consolePage+1)+"/"+total;
+}
+function scrollCodeInsidePane(id){
+ const sec=sections().find(x=>x.id===id);if(!sec)return;
+ for(const viewer of [$("viewerDesktop"),$("viewerMobile")]){
+  const row=viewer.children[sec.index];if(!row)continue;
+  const y=row.offsetTop-viewer.offsetTop;
+  viewer.scrollTop=Math.max(0,y-viewer.clientHeight/3);
+ }
+}
+function consolePress(color){
+ if(!consoleId)return;
+ const sec=sections().find(x=>x.id===consoleId);if(!sec)return;
+ const p=parse(sec.body),pages=lcdPages(p.story,Boolean(p.leftTarget||p.rightTarget));
+ const page=pages[consolePage];
+ if(color==="green"&&!page.choice&&consolePage<pages.length-1){
+  consolePage++;showConsole(consoleId,false);return;
+ }
+ if(!page.choice)return;
+ const target=color==="red"?p.leftTarget:p.rightTarget;
+ if(target&&sections().some(x=>x.id===target)){
+  navigate(()=>{loadSection(target,true);scrollCodeInsidePane(target)});
+ }
+}
+$("consoleRed").onclick=()=>consolePress("red");
+$("consoleGreen").onclick=()=>consolePress("green");
+showConsole(sections()[0]?.id);
+
+render();
+</script><script>if("serviceWorker" in navigator && (location.protocol==="https:" || location.hostname==="localhost")) navigator.serviceWorker.register("./sw.js").catch(()=>{});</script></body></html>
